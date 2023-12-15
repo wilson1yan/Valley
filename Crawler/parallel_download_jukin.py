@@ -89,29 +89,34 @@ def download_process_save(save_dir, jmId):
     "X-Algolia-Application-Id": "XSWHBQ6C6E",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
-    response = requests.post('https://www.jukinmedia.com/api/public/video/downloadVideo/'+jmId,headers=headers)
-    video_response = requests.get(js.loads(response.content)['url'])
-    video_bytes = video_response.content
     input_fname = f"{TMP_DIR}/v_{jmId}.mp4"
     output_fname = f"{TMP_DIR}/v_{jmId}_2.mp4"
-    with open(input_fname, "wb") as f:
-        f.write(video_bytes)
+    try:
+        url = 'https://www.jukinmedia.com/api/public/video/downloadVideo/'+jmId
+        response = requests.post(url,headers=headers)
+        video_response = requests.get(js.loads(response.content)['url'])
+        video_bytes = video_response.content
+        with open(input_fname, "wb") as f:
+            f.write(video_bytes)
 
-    fps = 4
-    image_size = 256
-    (
-        ffmpeg.input(input_fname)
-        .filter("fps", fps=fps, round='up')
-        .filter("scale", w=image_size, h=image_size, force_original_aspect_ratio="increase")
-        .filter("crop", image_size, image_size)
-        .output(output_fname)
-        .run()
-    )
+        fps = 4
+        image_size = 256
+        (
+            ffmpeg.input(input_fname)
+            .filter("fps", fps=fps, round='up')
+            .filter("scale", w=image_size, h=image_size, force_original_aspect_ratio="increase")
+            .filter("crop", image_size, image_size)
+            .output(output_fname)
+            .run(capture_stdout=True, capture_stderr=True)
+        )
 
-    fs.put_file(output_fname, f"{save_dir}/v_{jmId}.mp4")
-    os.system(f"rm {input_fname}")
-    os.system(f"rm {output_fname}")
-    print('{} succeed!'.format(jmId))
+        fs.put_file(output_fname, f"{save_dir}/v_{jmId}.mp4")
+        os.system(f"rm {input_fname}")
+        os.system(f"rm {output_fname}")
+        print('{} succeed!'.format(jmId))
+    except Exception as e:
+        print(f'{url} error:', e)
+
 
 def check_already(save_dir, args_list):
     fs = gcsfs.GCSFileSystem()
@@ -132,7 +137,7 @@ def main(args):
     input_file_path = Path(args.input_file)
     all_data = js.load(open(input_file_path,'r'))
  
-    Path(args.save_dir).mkdir(exist_ok=True, parents=True)
+#    Path(args.save_dir).mkdir(exist_ok=True, parents=True)
     tp = ThreadPool(args.num_process)
     args_list = []
     for cat in all_data:
